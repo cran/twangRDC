@@ -21,7 +21,7 @@
 #' @param min.iter An integer specifying the minimum number of iterations before checking for convergence. 
 #'   Note that `max.steps`*`iters.per.step` must be greater than or equal to `min.iter`. Default: 1000.
 #' @param min.width An integer specifying the minimum number of iterations between the current 
-#'   number of iterations and the optimal value. Default: 500.
+#'   number of iterations and the optimal value. Default: `5*iters.per.step`.
 #' @param verbose A logical value indicating if the function should update 
 #'   the user on its progres Default: TRUE.
 #' @param save.model A logical value indicating if the xgboost model be saved as part of the output object. Default: FALSE.
@@ -64,7 +64,7 @@ ps.xgb <- function(formula = formula(data),
                    iters.per.step=100,
                    id.var , 
                    min.iter=1000,
-                   min.width=500,
+                   min.width=NULL,
                    verbose=TRUE,
                    save.model=FALSE,
                    weights=NULL,
@@ -83,6 +83,11 @@ ps.xgb <- function(formula = formula(data),
    # check the number of iterations makes sense
    if( max.steps*iters.per.step < min.iter){
       stop("max.steps*iters.per.step must be at least equal to min.iter")
+   }
+   
+   # default min width
+   if( is.null(min.width) ){
+      min.width = 5*iters.per.step
    }
    
    # convert to data.frame b/c some of this code won't work with tibble, or data.table
@@ -129,8 +134,16 @@ ps.xgb <- function(formula = formula(data),
    # we require 2 variables to be balanced
    if(length(vars.bal) < 2) stop("At least two variables are needed in the right-hand side of the formula.\n")
    
+   # we require missing data to be in both groups
+   for (v in vars.bal){
+      Nmiss = tapply(is.na(data[,v]) , data[,treat.var] , any )
+      if( xor(Nmiss[1],Nmiss[2]) ){
+         stop(paste0("The covariate ", v, " has missing values that are unique to one level of " , treat.var,". At this time, we do not support this pattern of missingness. Please impute the missing values for ", v, ", drop observations with the problematic missingness, or remove ", v, " from the covariates to be balanced.\n"))
+      }
+   }
+   
    # clean up
-   rm(terms , mf , m , Terms)
+   rm(terms , mf , m , Terms , Nmiss)
    
    # only keep data that is used 
    vars.to.keep = c(treat.var , vars.bal , strata , id.var)
@@ -168,7 +181,9 @@ ps.xgb <- function(formula = formula(data),
       cat("\nFitting initial GLM...\n")
    }
    m.glm = glm(as.formula(paste0(treat.var,"~", paste0(grep("\\.\\.",vars.bal,value=TRUE,invert=TRUE),collapse="+") )) , family='binomial' , data=data , weights=weights)
-   initial.p = predict(m.glm , type="response" )
+   initial.p = predict(m.glm , type="response" , newdata=data)
+   initial.p = ifelse(is.na(initial.p) , mean(initial.p , na.rm=T) , initial.p )
+   
    data$log.p = log(initial.p) - log(1-initial.p)
    
    rm(m.glm , initial.p)
@@ -311,7 +326,8 @@ ps.xgb <- function(formula = formula(data),
       # saveRDS(gbm1 , paste0(file.loc,"current_gbm.rds"))
       
       # extract predictions
-      p = as.matrix(gbm1$evaluation_log)
+      # p = plogis(as.matrix(gbm1$evaluation_log))
+      p = as.matrix(predict(gbm1,newdata=sparse.data))
 
       if (verbose){
          cat("\nUpdating balance calculations...\n")
@@ -485,11 +501,13 @@ ps.xgb <- function(formula = formula(data),
    bal.tab = NULL
    for (v in vars.bal){
       if (linkage){
+         index = rep(TRUE,nrow(data))
          bal.data = gen.bal.data(data = data[,v,drop=FALSE] , var.names = v)
          bal.weights = out$weight.data[,"w"]
       }else{
-         bal.data = gen.bal.data(data = data[data[,treat.var]==1,v,drop=FALSE] , var.names = v)
-         bal.weights = out$weight.data[data[,treat.var]==1,"w"]
+         index = data[,treat.var]==1
+         bal.data = gen.bal.data(data = data[index,v,drop=FALSE] , var.names = v)
+         bal.weights = out$weight.data[data[index,treat.var]==1,"w"]
       }
       numeric.vars = bal.data$numeric.vars 
       
@@ -497,8 +515,8 @@ ps.xgb <- function(formula = formula(data),
       bal.data = as.matrix(bal.data$bal.data)
       N.pop = nrow(bal.data)
       
-      m.pop  = colSums(sweep(x = bal.data , MARGIN = 1 , STATS = bal.weights , FUN="*" )) / sum(bal.weights) # colMeans(bal.data)
-      m2.pop = colSums(sweep(x = bal.data^2 , MARGIN = 1 , STATS = bal.weights , FUN="*" )) / sum(bal.weights) # colMeans(bal.data^2)
+      m.pop  = colSums(sweep(x = bal.data , MARGIN = 1 , STATS = weights[index] , FUN="*" )) / sum(weights[index]) # colMeans(bal.data)
+      m2.pop = colSums(sweep(x = bal.data^2 , MARGIN = 1 , STATS = weights[index] , FUN="*" )) / sum(weights[index]) # colMeans(bal.data^2)
       
       var.pop = m2.pop - (m.pop)^2
       var.pop[numeric.vars] =  var.pop[numeric.vars] * N.pop / (N.pop-1)
@@ -508,18 +526,18 @@ ps.xgb <- function(formula = formula(data),
       }
       
       # clean up
-      rm(bal.data,bal.weights)
+      rm(bal.data,bal.weights,index)
       
       # defines data that is to be weighted
       if (linkage){
          # gets mean with treat = 1
-         index = data[,strata]==stratum & data[,treat.var]==1
+         index = data[,treat.var]==1
          bal.data.pik = gen.bal.data(data = data[ index ,v, drop=FALSE] , var.names = v)
          # define weights
          w = out$weight.data[index,'w',drop=FALSE] 
       }else{
          # gets mean with treat = 0
-         index = data[,strata]==stratum & data[,treat.var]==0
+         index = data[,treat.var]==0
          bal.data.pik = gen.bal.data(data = data[ index ,v, drop=FALSE] , var.names = v)
          # define weights
          w =  out$weight.data[index,'w',drop=FALSE]

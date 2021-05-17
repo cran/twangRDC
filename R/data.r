@@ -1,23 +1,26 @@
-#' Prices of 50,000 round cut diamonds.
+#' An example FSRDC dataset
 #'
-#' A dataset containing the prices and other attributes of almost 54,000
-#' diamonds.
+#' See vignette for detailed description of the data.
 #'
-#' @format A data frame with 53940 rows and 10 variables:
-#' \describe{
-#'   \item{c00_age12}{price, in US dollars}
-#'   \item{c00_nphu}{weight of the diamond, in carats}
-#'   \item{c00_race}{weight of the diamond, in carats}
-#'   \item{c00_sex}{weight of the diamond, in carats}
-#'   \item{concdis}{something}
-#'   \item{hhid}{weight of the diamond, in carats}
-#'   \item{id}{weight of the diamond, in carats}
-#'   \item{imm_conc}{weight of the diamond, in carats}
-#'   \item{metarea}{weight of the diamond, in carats}
-#'   \item{nola_rec}{weight of the diamond, in carats}
-#'   \item{res_stab}{weight of the diamond, in carats}
-#'   \item{sim_pik}{weight of the diamond, in carats}
-#'   \item{tract_id_str}{weight of the diamond, in carats}
+#' @format A data frame 
+#'
+#' \itemize{
+#'   \item tract_id_str. Census tract identifier
+#'   \item metarea. metropolitan area
+#'   \item c00_age12. categorical variable for age
+#'   \item c00_sex. sex
+#'   \item c00_race. categorical variable for race
+#'   \item c00_nphu. number of persons in housing unit
+#'   \item hhid. household identifier
+#'   \item sim_pik. indicator of PIK assignment
+#'   \item nola_rec. indicator of record from Orleans Parish
+#'   \item id. individual identifier
 #' }
+#'
+#' @docType data
+#' @keywords datasets
+#' @name nola_south
 #' @usage data(nola_south)
+#' @format A data frame with 18396 rows and 10 variables
+#' 
 "nola_south"

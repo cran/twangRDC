@@ -14,7 +14,7 @@ ps.xgb(
   iters.per.step = 100,
   id.var,
   min.iter = 1000,
-  min.width = 500,
+  min.width = NULL,
   verbose = TRUE,
   save.model = FALSE,
   weights = NULL,
@@ -48,7 +48,7 @@ to the model at each step of algorithm. Note that \code{max.steps}*\code{iters.p
 Note that \code{max.steps}*\code{iters.per.step} must be greater than or equal to \code{min.iter}. Default: 1000.}
 
 \item{min.width}{An integer specifying the minimum number of iterations between the current
-number of iterations and the optimal value. Default: 500.}
+number of iterations and the optimal value. Default: \code{5*iters.per.step}.}
 
 \item{verbose}{A logical value indicating if the function should update
 the user on its progres Default: TRUE.}

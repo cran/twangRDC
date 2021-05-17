@@ -36,10 +36,10 @@ bal.table = function(x , type="overall" , n=10 , decreasing=TRUE , which.sort="a
       }
       
       if (which.sort=="unadj"){
-         out = out[order(out[,"Unadjusted Maximum Standardized Difference"] , decreasing=decreasing)[keep],,drop=F]
+         out = out[order(abs(out[,"Unadjusted Maximum Standardized Difference"]) , decreasing=decreasing)[keep],,drop=F]
       }
       if (which.sort=="adj"){
-         out = out[order(out[,"Adjusted Maximum Standardized Difference"] , decreasing=decreasing)[keep],,drop=F]
+         out = out[order(abs(out[,"Adjusted Maximum Standardized Difference"]) , decreasing=decreasing)[keep],,drop=F]
       }
    }
    return(out)
